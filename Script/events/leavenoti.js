@@ -1,9 +1,15 @@
+/**
+ * leave.js
+ * Goodbye Message System (Updated by Hridoy Hossen)
+ * Bot: 𝙆𝙖𝙜𝙪𝙮𝙖 Ō𝙩𝙨𝙪𝙩𝙨𝙪𝙠𝙞
+ */
+
 module.exports.config = {
   name: "leave",
   eventType: ["log:unsubscribe"],
-  version: "1.0.0",
-  credits: "𝐂𝐘𝐁𝐄𝐑 ☢️_𖣘 -𝐁𝐎𝐓 ⚠️ 𝑻𝑬𝑨𝑴_ ☢️",
-  description: "Thông báo bot hoặc người rời khỏi nhóm",
+  version: "1.1.0",
+  credits: "Hridoy Hossen",
+  description: "Send farewell message when someone leaves the group",
   dependencies: {
     "fs-extra": "",
     "path": ""
@@ -11,33 +17,40 @@ module.exports.config = {
 };
 
 module.exports.run = async function({ api, event, Users, Threads }) {
-  if (event.logMessageData.leftParticipantFbId == api.getCurrentUserID()) return;
-
-  const { createReadStream, existsSync, mkdirSync } = global.nodemodule["fs-extra"];
-  const { join } = global.nodemodule["path"];
+  const fs = require("fs");
+  const path = require("path");
   const { threadID } = event;
 
+  // Ignore if bot itself leaves
+  if (event.logMessageData.leftParticipantFbId == api.getCurrentUserID()) return;
+
+  // Thread & user info
   const data = global.data.threadData.get(parseInt(threadID)) || (await Threads.getData(threadID)).data;
-  const name = global.data.userName.get(event.logMessageData.leftParticipantFbId) || await Users.getNameUser(event.logMessageData.leftParticipantFbId);
+  const name = global.data.userName.get(event.logMessageData.leftParticipantFbId) 
+    || await Users.getNameUser(event.logMessageData.leftParticipantFbId);
 
+  // Message type
   const type = (event.author == event.logMessageData.leftParticipantFbId)
-    ? " তোর সাহস কম না  গ্রুপের এডমিনের পারমিশন ছাড়া তুই লিভ  নিস😡😠🤬 \n✦─────꯭─⃝‌‌𝙆𝙖𝙜𝙪𝙮𝙖 Ō𝙩𝙨𝙪𝙩𝙨𝙪𝙠𝙞────✦"
-    : "তোমার এই গ্রুপে থাকার কোনো যোগ্যাতা নেই ছাগল😡\nতাই তোমাকে লাথি মেরে গ্রুপ থেকে বের করে দেওয়া হলো🤪 WELLCOME REMOVE🤧\n✦─────꯭─⃝‌‌𝙆𝙖𝙜𝙪𝙮𝙖 Ō𝙩𝙨𝙪𝙩𝙨𝙪𝙠𝙞────✦";
+    ? "😡 সাহস তো কম না! গ্রুপের এডমিনের পারমিশন ছাড়া তুই লিভ নিস 🤬\n\n✦─────꯭─⃝‌‌𝙆𝙖𝙜𝙪𝙮𝙖 Ō𝙩𝙨𝙪𝙩𝙨𝙪𝙠𝙞────✦"
+    : "😠 তোমার এই গ্রুপে থাকার যোগ্যতা শেষ! লাথি মেরে বের করে দেওয়া হলো 😹\n\n✦─────꯭─⃝‌‌𝙆𝙖𝙜𝙪𝙮𝙖 Ō𝙩𝙨𝙪𝙩𝙨𝙪𝙠𝙞────✦";
 
-  const path = join(__dirname, "Shahadat", "leaveGif");
-  const gifPath = join(path, `leave1.gif`);
+  // Path for GIF/Photo
+  const leaveFolder = path.join(__dirname, "cache", "leaveGif");
+  const gifPath = path.join(leaveFolder, "leave1.gif");
 
-  if (!existsSync(path)) mkdirSync(path, { recursive: true });
+  if (!fs.existsSync(leaveFolder)) fs.mkdirSync(leaveFolder, { recursive: true });
 
-  let msg = (typeof data.customLeave == "undefined")
-    ? "ইস {name} {type} "
+  // Default message template
+  let msg = (typeof data.customLeave === "undefined")
+    ? "ইস! {name}...\n{type}"
     : data.customLeave;
 
   msg = msg.replace(/\{name}/g, name).replace(/\{type}/g, type);
 
-  const formPush = existsSync(gifPath)
-    ? { body: msg, attachment: createReadStream(gifPath) }
+  // Send message with or without attachment
+  const messageForm = fs.existsSync(gifPath)
+    ? { body: msg, attachment: fs.createReadStream(gifPath) }
     : { body: msg };
 
-  return api.sendMessage(formPush, threadID);
+  return api.sendMessage(messageForm, threadID);
 };
