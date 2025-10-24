@@ -1,28 +1,53 @@
+/**
+ * autosetname.js (Upgraded Version)
+ * Automatically set nicknames for new members.
+ * Bot: 𝙆𝙖𝙜𝙪𝙮𝙖 Ō𝙩𝙨𝙪𝙩𝙨𝙪𝙠𝙞
+ * Credit: Hridoy Hossen
+ */
+
 module.exports.config = {
-	name: "autosetname",
-	eventType: ["log:subscribe"],
-	version: "1.0.3",
-	credits: "𝐂𝐘𝐁𝐄𝐑 ☢️_𖣘 -𝐁𝐎𝐓 ⚠️ 𝑻𝑬𝑨𝑴_ ☢️",
-	description: "Automatically set new member nicknames"
+  name: "autosetname",
+  eventType: ["log:subscribe"],
+  version: "1.1.0",
+  credits: "Hridoy Hossen",
+  description: "Automatically set a nickname for new members when they join the group"
 };
 
-module.exports.run = async function({ api, event, Users }) {
-const { threadID } = event;
-var memJoin = event.logMessageData.addedParticipants.map(info => info.userFbId)
-	for (let idUser of memJoin) {
-		const { readFileSync, writeFileSync } = global.nodemodule["fs-extra"];
-		const { join } = global.nodemodule["path"]
-		const pathData = join("./modules/commands","cache", "autosetname.json");
-		var dataJson = JSON.parse(readFileSync(pathData, "utf-8"));
-		var thisThread = dataJson.find(item => item.threadID == threadID) || { threadID, nameUser: [] };
-		if (thisThread.nameUser.length == 0) return 
-		if (thisThread.nameUser.length != 0) {  
-		var setName = thisThread.nameUser[0] 
-		await new Promise(resolve => setTimeout(resolve, 1000));
-		var namee1 = await api.getUserInfo(idUser)
-        var namee = namee1[idUser].name
-		api.changeNickname(`${setName} ${namee}`, threadID, idUser);
-		} 
-	}	
-	return api.sendMessage(`Set a temporary nickname for the new member`, threadID, event.messageID)
-}
+module.exports.run = async function ({ api, event, Users }) {
+  try {
+    const { threadID } = event;
+    const fs = require("fs-extra");
+    const path = require("path");
+
+    // নতুন ইউজারদের লিস্ট
+    const memJoin = event.logMessageData.addedParticipants.map(i => i.userFbId);
+
+    // JSON ফাইল যেখানে prefix name গুলো সেভ থাকে
+    const pathData = path.join(__dirname, "cache", "autosetname.json");
+    if (!fs.existsSync(pathData)) fs.writeFileSync(pathData, JSON.stringify([]));
+
+    const dataJson = JSON.parse(fs.readFileSync(pathData, "utf-8"));
+    const thisThread = dataJson.find(item => item.threadID == threadID) || { threadID, nameUser: [] };
+
+    // Prefix না থাকলে কিছু করবে না
+    if (!thisThread.nameUser.length) return;
+
+    for (const idUser of memJoin) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const userInfo = await api.getUserInfo(idUser);
+      const fullName = userInfo[idUser].name;
+      const prefix = thisThread.nameUser[0];
+      const newNick = `${prefix} ${fullName}`;
+
+      api.changeNickname(newNick, threadID, idUser);
+    }
+
+    return api.sendMessage(
+      `🌸 নতুন মেম্বারদের নিকনেম অটোসেট করা হয়েছে সফলভাবে!\nBot: 𝙆𝙖𝙜𝙪𝙮𝙖 Ō𝙩𝙨𝙪𝙩𝙨𝙪𝙠𝙞 💫`,
+      threadID
+    );
+
+  } catch (err) {
+    console.error("autosetname error:", err);
+  }
+};
