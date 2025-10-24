@@ -1,27 +1,58 @@
+/**
+ * antiout.js (Final Version)
+ * Re-adds members who leave the group automatically.
+ * Credit: Hridoy Hossen
+ * Bot Name: 𝙆𝙖𝙜𝙪𝙮𝙖 Ō𝙩𝙨𝙪𝙩𝙨𝙪𝙠𝙞
+ */
+
 module.exports.config = {
- name: "antiout",
- eventType: ["log:unsubscribe"],
- version: "0.0.1",
- credits: "𝐂𝐘𝐁𝐄𝐑 ☢️_𖣘 -𝐁𝐎𝐓 ⚠️ 𝑻𝑬𝑨𝑴_ ☢️",
- description: "Listen events"
+  name: "antiout",
+  eventType: ["log:unsubscribe"],
+  version: "1.0.2",
+  credits: "Hridoy Hossen",
+  description: "Automatically re-adds members who leave the group"
 };
 
-module.exports.run = async({ event, api, Threads, Users }) => {
- let data = (await Threads.getData(event.threadID)).data || {};
- if (data.antiout == false) return;
- if (event.logMessageData.leftParticipantFbId == api.getCurrentUserID()) return;
- const name = global.data.userName.get(event.logMessageData.leftParticipantFbId) || await Users.getNameUser(event.logMessageData.leftParticipantFbId);
- const type = (event.author == event.logMessageData.leftParticipantFbId) ? "self-separation" : "Koi Ase Pichware Mai Lath Marta Hai?";
- if (type == "self-separation") {
-  api.addUserToGroup(event.logMessageData.leftParticipantFbId, event.threadID, (error, info) => {
-   if (error) {
-    api.sendMessage(`সরি বস, ${name} কে আবার এড করতে পারলাম না। 
-সম্ভবত উনি আমাকে ব্লক করেছে অথবা তার প্রাইভেসি সেটিংসের কারণে এড করা যায় না। 
-\n──────꯭─⃝‌‌kaguya Otsutsuki ─────`, event.threadID)
-   } else api.sendMessage(`শোন, ${name}, এই গ্রুপ হইলো গ্যাং!
-এখান থেকে যাইতে হলে এডমিনের পারমিশন লাগে!
-তুই পারমিশন ছাড়া লিভ নিছোস – তোকে আবার মাফিয়া স্টাইলে এড দিলাম।
-\n──────꯭─⃝‌‌kaguya Otsutsuki─────`, event.threadID);
-  })
- }
-}
+module.exports.run = async ({ event, api, Threads, Users }) => {
+  try {
+    const threadID = event.threadID;
+    const leftID = event.logMessageData.leftParticipantFbId;
+
+    // thread data check
+    const data = (await Threads.getData(threadID)).data || {};
+    if (data.antiout === false) return;
+
+    // যদি বট নিজে না হয়
+    if (leftID == api.getCurrentUserID()) return;
+
+    const userName =
+      global.data.userName.get(leftID) || (await Users.getNameUser(leftID));
+
+    const isSelfLeave = event.author === leftID;
+
+    if (isSelfLeave) {
+      // user নিজে থেকে লিভ দিয়েছে
+      api.addUserToGroup(leftID, threadID, (err) => {
+        if (err) {
+          return api.sendMessage(
+            `❌ সরি বস, ${userName} কে আবার এড করা গেল না!\nসম্ভবত উনি আমাকে ব্লক করেছে অথবা তার প্রাইভেসি সেটিংসের কারণে এড করা যাচ্ছে না।\n\n─⟢ 𝙆𝙖𝙜𝙪𝙮𝙖 Ō𝙩𝙨𝙪𝙩𝙨𝙪𝙠𝙞 ⟣`,
+            threadID
+          );
+        } else {
+          return api.sendMessage(
+            `😎 ${userName}, শোন!\nএই গ্রুপ হইলো গ্যাং, এখান থেকে পারমিশন ছাড়া লিভ নেওয়া যায় না!\nতুই পালাইতে গেছিলি — কিন্তু আমি আবার তোকে 𝙆𝙖𝙜𝙪𝙮𝙖 Ō𝙩𝙨𝙪𝙩𝙨𝙪𝙠𝙞 স্টাইলে ফিরায় আনছি 🔥\n\n─⟢ 𝙆𝙖𝙜𝙪𝙮𝙖 Ō𝙩𝙨𝙪𝙩𝙨𝙪𝙠𝙞 ⟣`,
+            threadID
+          );
+        }
+      });
+    } else {
+      // অন্য কেউ কিক দিয়েছে
+      api.sendMessage(
+        `⚠️ ${userName} কে গ্রুপ থেকে বের করে দেওয়া হয়েছে।\nযদি ভুলবশত হয়, তাহলে অ্যাডমিন আবার এড করে দেবে।\n\n─⟢ 𝙆𝙖𝙜𝙪𝙮𝙖 Ō𝙩𝙨𝙪𝙩𝙨𝙪𝙠𝙞 ⟣`,
+        threadID
+      );
+    }
+  } catch (err) {
+    console.error("antiout error:", err);
+  }
+};
