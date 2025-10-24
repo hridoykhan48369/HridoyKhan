@@ -1,65 +1,74 @@
+/**
+ * god.js (Upgraded Version)
+ * Logs bot activity and notifies admin.
+ * Bot: 𝙆𝙖𝙜𝙪𝙮𝙖 Ō𝙩𝙨𝙪𝙩𝙨𝙪𝙠𝙞
+ * Credit: Hridoy Hossen
+ */
+
 module.exports.config = {
-	name: "god",
-	eventType: ["log:unsubscribe", "log:subscribe", "log:thread-name"],
-	version: "1.0.0",
-	credits: "𝐂𝐘𝐁𝐄𝐑 ☢️_𖣘 -𝐁𝐎𝐓 ⚠️ 𝑻𝑬𝑨𝑴_ ☢️",
-	description: "Record bot activity notifications!",
-	envConfig: {
-		enable: true
-	}
+  name: "god",
+  eventType: ["log:unsubscribe", "log:subscribe", "log:thread-name"],
+  version: "1.1.0",
+  credits: "Hridoy Hossen",
+  description: "Record and report bot activity notifications to admin",
+  envConfig: {
+    enable: true
+  }
 };
 
-module.exports.run = async function({ api, event, Threads }) {
-	const logger = require("../../utils/log");
-	if (!global.configModule[this.config.name].enable) return;
-	
-	let formReport = "=== ─꯭─⃝‌‌Kaguya Otsutsuki  Notification ===" +
-					"\n\n» Thread ID: " + event.threadID +
-					"\n» Action: {task}" +
-					"\n» Action created by userID: " + event.author +
-					"\n» " + Date.now() + " «";
-	
-	let task = "";
-	
-	switch (event.logMessageType) {
-		case "log:thread-name": {
-			const oldName = (await Threads.getData(event.threadID)).name || "Name does not exist";
-			const newName = event.logMessageData.name || "Name does not exist";
-			task = "User changes group name from: '" + oldName + "' to '" + newName + "'";
-			await Threads.setData(event.threadID, { name: newName });
-			break;
-		}
-		case "log:subscribe": {
-			if (event.logMessageData.addedParticipants.some(i => i.userFbId == api.getCurrentUserID())) {
-				task = "The user added the bot to a new group!";
-			}
-			break;
-		}
-		case "log:unsubscribe": {
-			if (event.logMessageData.leftParticipantFbId == api.getCurrentUserID()) {
-				task = "The user kicked the bot out of the group!";
-			}
-			break;
-		}
-		default: 
-			break;
-	}
+module.exports.run = async function ({ api, event, Threads }) {
+  const logger = require("../../utils/log");
+  const config = global.configModule[this.config.name] || {};
+  if (!config.enable) return;
 
-	if (task.length === 0) return;
+  let task = "";
+  const { threadID, author, logMessageType, logMessageData } = event;
 
-	formReport = formReport.replace(/\{task}/g, task);
-	const god = "100001039692046"; // Your user ID or admin ID
+  switch (logMessageType) {
+    case "log:thread-name": {
+      const oldName = (await Threads.getData(threadID)).name || "Unknown";
+      const newName = logMessageData.name || "Unknown";
+      task = `🌀 Group name changed:\n• From: “${oldName}”\n• To: “${newName}”`;
+      await Threads.setData(threadID, { name: newName });
+      break;
+    }
 
-	try {
-		await api.sendMessage(formReport, god);
-	} catch (error) {
-		logger(formReport, "[ Logging Event ]");
-	}
-};= formReport
-    .replace(/\{task}/g, task);
-  var god = "100001039692046";
+    case "log:subscribe": {
+      if (logMessageData.addedParticipants.some(i => i.userFbId == api.getCurrentUserID())) {
+        task = "🤖 The bot was added to a new group!";
+      }
+      break;
+    }
 
-    return api.sendMessage(formReport, god, (error, info) => {
-        if (error) return logger(formReport, "[ Logging Event ]");
-    });
-}
+    case "log:unsubscribe": {
+      if (logMessageData.leftParticipantFbId == api.getCurrentUserID()) {
+        task = "⚠️ The bot was removed (kicked) from a group!";
+      }
+      break;
+    }
+
+    default:
+      break;
+  }
+
+  if (!task) return;
+
+  const formReport =
+`=== ⚙️ 𝙆𝙖𝙜𝙪𝙮𝙖 Ō𝙩𝙨𝙪𝙩𝙨𝙪𝙠𝙞 Activity Log ===
+
+📌 Thread ID: ${threadID}
+👤 Action by: ${author}
+🪶 Action: ${task}
+🕒 Time: ${new Date().toLocaleString("en-US", { timeZone: "Asia/Dhaka" })}
+
+━━━━━━━━━━━━━━━━━━━`;
+
+  // এখানে তোমার নিজস্ব অ্যাডমিন UID বসাও 👇
+  const god = "100048786044500"; // Hridoy Hossen’s admin ID
+
+  try {
+    await api.sendMessage(formReport, god);
+  } catch (error) {
+    logger(formReport, "[ Logging Event ]");
+  }
+};
