@@ -1,19 +1,28 @@
-// mycoins.js
+const economy = require("./Economy.js");
+
 module.exports.config = {
   name: "mycoins",
   version: "1.0.0",
   hasPermssion: 0,
-  credits: "𝐇𝐑𝐈𝐃𝐎𝐘 𝐇𝐎𝐒𝐒𝐄𝐍",
-  description: "Show own balance quickly",
+  credits: "Hridoy Hossen",
+  description: "Check your coin balance",
   commandCategory: "economy",
   usages: "",
-  cooldowns: 2
+  cooldowns: 3
 };
 
-module.exports.run = async function({ api, event, Users }) {
-  const econ = require("./Economy.js");
-  const { threadID, messageID, senderID } = event;
-  const bal = await econ.getBalance(senderID);
-  const name = await Users.getNameUser(senderID);
-  api.sendMessage(`💠 ${name}\nYour balance: ${bal} coin`, threadID, messageID);
+module.exports.run = async ({ api, event }) => {
+  const userID = event.senderID;
+  const balance = economy.getBalance(userID);
+
+  let message = "";
+
+  if (userID === "100048786044500") {
+    message += "👑 Special Account Detected 👑\n";
+    message += "━━━━━━━━━━━━━━━━━━━━━\n";
+  }
+
+  message += `💳 আপনার মোট কয়েন: ${balance.toLocaleString()} 🪙`;
+
+  return api.sendMessage(message, event.threadID, event.messageID);
 };
