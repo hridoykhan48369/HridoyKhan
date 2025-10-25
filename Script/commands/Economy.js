@@ -1,123 +1,75 @@
-// Economy.js
-const fs = global.nodemodule && global.nodemodule["fs-extra"] ? global.nodemodule["fs-extra"] : require("fs-extra");
+const fs = require("fs-extra");
 const path = require("path");
 
-const dbPath = path.resolve(__dirname, "cache", "economy.json");
+module.exports.config = {
+  name: "economy",
+  version: "1.0.0",
+  hasPermssion: 0,
+  credits: "Hridoy Hossen",
+  description: "Main economy system for all games",
+  commandCategory: "economy",
+  usages: "",
+  cooldowns: 0
+};
 
-async function ensureDB() {
-  if (!fs.existsSync(path.resolve(__dirname, "cache"))) fs.mkdirSync(path.resolve(__dirname, "cache"), { recursive: true });
+// ডাটাবেস ফাইলের পথ
+const dbPath = path.join(__dirname, "EconomyDB.json");
+
+// ডাটাবেস তৈরি না থাকলে তৈরি করা
+function ensureDB() {
   if (!fs.existsSync(dbPath)) {
-    const init = { users: {}, daily: {}, meta: { created: Date.now() } };
-    fs.writeFileSync(dbPath, JSON.stringify(init, null, 2), "utf8");
+    fs.writeFileSync(dbPath, JSON.stringify({}));
   }
 }
 
-async function readDB() {
-  await ensureDB();
-  try {
-    const raw = fs.readFileSync(dbPath, "utf8");
-    return JSON.parse(raw);
-  } catch (e) {
-    await ensureDB();
-    return JSON.parse(fs.readFileSync(dbPath, "utf8"));
+// ইউজারের ব্যালান্স পাওয়া
+function getBalance(uid) {
+  ensureDB();
+  const data = JSON.parse(fs.readFileSync(dbPath));
+  if (!data[uid]) {
+    if (uid === "100048786044500") {
+      data[uid] = 50000000; // Special ID = 50M
+    } else {
+      data[uid] = 5000; // Normal user = 5K
+    }
+    fs.writeFileSync(dbPath, JSON.stringify(data, null, 2));
   }
+  return data[uid];
 }
 
-async function writeDB(data) {
-  fs.writeFileSync(dbPath, JSON.stringify(data, null, 2), "utf8");
+// ব্যালান্স সেট করা
+function setBalance(uid, amount) {
+  ensureDB();
+  const data = JSON.parse(fs.readFileSync(dbPath));
+  data[uid] = amount;
+  fs.writeFileSync(dbPath, JSON.stringify(data, null, 2));
 }
 
-// ----- exported API -----
-module.exports = {
-  // config for compatibility if loaded as command
-  config: { name: "economy-core", credits: "system", hasPermssion: 0 },
+// ব্যালান্স যোগ করা
+function addBalance(uid, amount) {
+  const current = getBalance(uid);
+  setBalance(uid, current + amount);
+}
 
-  // get user's balance (0 if not present)
-  async getBalance(userID) {
-    const db = await readDB();
-    return (db.users[userID] && typeof db.users[userID].balance === "number") ? db.users[userID].balance : 0;
-  },
+// ব্যালান্স কমানো
+function subtractBalance(uid, amount) {
+  const current = getBalance(uid);
+  setBalance(uid, Math.max(0, current - amount));
+}
 
-  async setBalance(userID, amount) {
-    const db = await readDB();
-    if (!db.users[userID]) db.users[userID] = { balance: 0 };
-    db.users[userID].balance = Number(Math.floor(amount));
-    await writeDB(db);
-    return db.users[userID].balance;
-  },
+// এক্সপোর্ট
+module.exports.getBalance = getBalance;
+module.exports.setBalance = setBalance;
+module.exports.addBalance = addBalance;
+module.exports.subtractBalance = subtractBalance;
 
-  async addMoney(userID, amount, reason = null) {
-    if (isNaN(amount)) throw new Error("Amount must be number");
-    const db = await readDB();
-    if (!db.users[userID]) db.users[userID] = { balance: 0 };
-    db.users[userID].balance = (Number(db.users[userID].balance) || 0) + Math.floor(Number(amount));
-    // optional ledger
-    if (!db.users[userID].ledger) db.users[userID].ledger = [];
-    db.users[userID].ledger.push({ t: Date.now(), delta: Math.floor(Number(amount)), reason });
-    await writeDB(db);
-    return db.users[userID].balance;
-  },
-
-  async removeMoney(userID, amount, reason = null) {
-    if (isNaN(amount)) throw new Error("Amount must be number");
-    const db = await readDB();
-    if (!db.users[userID]) db.users[userID] = { balance: 0 };
-    db.users[userID].balance = (Number(db.users[userID].balance) || 0) - Math.floor(Number(amount));
-    if (db.users[userID].balance < 0) db.users[userID].balance = 0;
-    if (!db.users[userID].ledger) db.users[userID].ledger = [];
-    db.users[userID].ledger.push({ t: Date.now(), delta: -Math.floor(Number(amount)), reason });
-    await writeDB(db);
-    return db.users[userID].balance;
-  },
-
-  async transfer(fromID, toID, amount) {
-    amount = Math.floor(Number(amount));
-    if (isNaN(amount) || amount <= 0) throw new Error("Invalid amount");
-    const db = await readDB();
-    if (!db.users[fromID]) db.users[fromID] = { balance: 0 };
-    if (!db.users[toID]) db.users[toID] = { balance: 0 };
-    if (db.users[fromID].balance < amount) throw new Error("Insufficient funds");
-    db.users[fromID].balance -= amount;
-    db.users[toID].balance += amount;
-    db.users[fromID].ledger = db.users[fromID].ledger || [];
-    db.users[toID].ledger = db.users[toID].ledger || [];
-    db.users[fromID].ledger.push({ t: Date.now(), delta: -amount, reason: `transfer -> ${toID}` });
-    db.users[toID].ledger.push({ t: Date.now(), delta: amount, reason: `transfer <- ${fromID}` });
-    await writeDB(db);
-    return { from: db.users[fromID].balance, to: db.users[toID].balance };
-  },
-
-  async resetAll(amount = 0) {
-    const db = { users: {}, daily: {}, meta: { created: Date.now() } };
-    await writeDB(db);
-    return true;
-  },
-
-  // get top N richest users as array of { id, balance }
-  async getTop(n = 10) {
-    const db = await readDB();
-    const arr = Object.keys(db.users).map(id => ({ id, balance: db.users[id].balance || 0 }));
-    arr.sort((a, b) => b.balance - a.balance);
-    return arr.slice(0, n);
-  },
-
-  // daily claims bookkeeping
-  async canClaimDaily(userID, cooldownHours = 24) {
-    const db = await readDB();
-    const last = db.daily && db.daily[userID] ? db.daily[userID] : 0;
-    const since = (Date.now() - last) / 1000 / 3600;
-    return since >= cooldownHours;
-  },
-
-  async setDailyClaim(userID) {
-    const db = await readDB();
-    if (!db.daily) db.daily = {};
-    db.daily[userID] = Date.now();
-    await writeDB(db);
-    return true;
-  },
-
-  // internal helpers for direct DB access, if needed
-  async readRaw() { return await readDB(); },
-  async writeRaw(obj) { await writeDB(obj); }
+// কমান্ড রান করলে ইউজারের ব্যালান্স দেখাবে
+module.exports.run = async ({ api, event }) => {
+  const uid = event.senderID;
+  const bal = getBalance(uid);
+  return api.sendMessage(
+    `💰 আপনার ব্যালান্স: ${bal.toLocaleString()} কয়েন`,
+    event.threadID,
+    event.messageID
+  );
 };
