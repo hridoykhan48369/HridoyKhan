@@ -1,35 +1,50 @@
-// bet.js
+const economy = require("./Economy.js");
+
 module.exports.config = {
   name: "bet",
-  version: "1.0.0",
+  version: "2.0.0",
   hasPermssion: 0,
-  credits: "𝐇𝐑𝐈𝐃𝐎𝐘 𝐇𝐎𝐒𝐒𝐄𝐍",
-  description: "Bet an amount, 50% win double, 50% lose",
+  credits: "Hridoy Hossen",
+  description: "Bet your coins and test your luck!",
   commandCategory: "economy",
-  usages: "<amount>",
-  cooldowns: 2
+  usages: "[amount]",
+  cooldowns: 5
 };
 
-module.exports.run = async function({ api, event, args, Users }) {
-  const econ = require("./Economy.js");
-  const { threadID, messageID, senderID } = event;
-  const amount = Math.floor(Number(args[0]));
-  if (!amount || amount <= 0) return api.sendMessage("Usage: bet <amount>", threadID, messageID);
-  const bal = await econ.getBalance(senderID);
-  if (bal < amount) return api.sendMessage("Insufficient balance.", threadID, messageID);
+module.exports.run = async ({ api, event, args }) => {
+  const userID = event.senderID;
+  const betAmount = parseInt(args[0]);
 
-  // Random outcome
-  const win = Math.random() < 0.5;
-  if (win) {
-    const winAmount = amount; // profit (double)
-    await econ.addMoney(senderID, winAmount, "bet win");
-    const newBal = await econ.getBalance(senderID);
-    const name = await Users.getNameUser(senderID);
-    return api.sendMessage(`${name} 🎉 You won ${winAmount} coins! New balance: ${newBal}`, threadID, messageID);
+  if (isNaN(betAmount) || betAmount <= 0)
+    return api.sendMessage("⚠️ সঠিকভাবে কয়েনের এমাউন্ট দিন! উদাহরণ: bet 500", event.threadID, event.messageID);
+
+  const balance = economy.getBalance(userID);
+
+  if (balance < betAmount)
+    return api.sendMessage("❌ পর্যাপ্ত কয়েন নেই!", event.threadID, event.messageID);
+
+  const chance = Math.random();
+  let result = "";
+
+  if (chance < 0.45) {
+    // হারবে
+    economy.subtractBalance(userID, betAmount);
+    result = `😢 আপনি হেরে গেছেন ${betAmount} কয়েন!`;
+  } else if (chance < 0.85) {
+    // ডাবল জিতবে
+    economy.addBalance(userID, betAmount * 2);
+    result = `🎉 আপনি জিতেছেন ${betAmount * 2} কয়েন!`;
   } else {
-    await econ.removeMoney(senderID, amount, "bet lost");
-    const newBal = await econ.getBalance(senderID);
-    const name = await Users.getNameUser(senderID);
-    return api.sendMessage(`${name} 😢 You lost ${amount} coins. New balance: ${newBal}`, threadID, messageID);
+    // ৫ গুণ জিতবে
+    economy.addBalance(userID, betAmount * 5);
+    result = `💎 ভাগ্যবান! আপনি জিতেছেন ${betAmount * 5} কয়েন!`;
   }
+
+  const total = economy.getBalance(userID);
+
+  return api.sendMessage(
+    `🎯 BET RESULT 🎯\n━━━━━━━━━━━━━━━\n${result}\n💰 আপনার নতুন ব্যালান্স: ${total.toLocaleString()} কয়েন`,
+    event.threadID,
+    event.messageID
+  );
 };
