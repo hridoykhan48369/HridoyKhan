@@ -1,47 +1,54 @@
-// slot.js
+const economy = require("./Economy.js");
+
 module.exports.config = {
   name: "slot",
-  version: "1.0.0",
+  version: "2.0.0",
   hasPermssion: 0,
-  credits: "𝐇𝐑𝐈𝐃𝐎𝐘 𝐇𝐎𝐒𝐒𝐄𝐍",
-  description: "Simple 3-reel slot. Usage: slot <amount>",
+  credits: "Hridoy Hossen",
+  description: "Play slot machine and win or lose coins",
   commandCategory: "economy",
-  usages: "<amount>",
-  cooldowns: 2
+  usages: "[bet amount]",
+  cooldowns: 5
 };
 
-module.exports.run = async function({ api, event, args, Users }) {
-  const econ = require("./Economy.js");
-  const { threadID, messageID, senderID } = event;
-  const bet = Math.floor(Number(args[0]));
-  if (!bet || bet <= 0) return api.sendMessage("Usage: slot <amount>", threadID, messageID);
+module.exports.run = async ({ api, event, args }) => {
+  const userID = event.senderID;
+  const bet = parseInt(args[0]);
 
-  const bal = await econ.getBalance(senderID);
-  if (bal < bet) return api.sendMessage("Insufficient balance.", threadID, messageID);
-
-  const symbols = ["🍒","🍋","🔔","⭐","7️⃣"];
-  const r = () => symbols[Math.floor(Math.random() * symbols.length)];
-  const s1 = r(), s2 = r(), s3 = r();
-
-  // payouts:
-  // triple 7 => x10, triple star => x5, triple bell => x4, triple same => x3, two same => x1.5
-  let payout = 0;
-  if (s1 === s2 && s2 === s3) {
-    if (s1 === "7️⃣") payout = bet * 10;
-    else if (s1 === "⭐") payout = bet * 5;
-    else if (s1 === "🔔") payout = bet * 4;
-    else payout = bet * 3;
-  } else if (s1 === s2 || s2 === s3 || s1 === s3) {
-    payout = Math.floor(bet * 1.5);
-  } else payout = -bet;
-
-  if (payout > 0) {
-    await econ.addMoney(senderID, payout, "slot win");
-    const newBal = await econ.getBalance(senderID);
-    return api.sendMessage(`🎰 [ ${s1} | ${s2} | ${s3} ]\nYou won ${payout} coins! New balance: ${newBal}`, threadID, messageID);
-  } else {
-    await econ.removeMoney(senderID, bet, "slot lose");
-    const newBal = await econ.getBalance(senderID);
-    return api.sendMessage(`🎰 [ ${s1} | ${s2} | ${s3} ]\nYou lost ${bet} coins. New balance: ${newBal}`, threadID, messageID);
+  if (isNaN(bet) || bet <= 0) {
+    return api.sendMessage("⚠️ সঠিকভাবে কয়েন এমাউন্ট লিখুন। উদাহরণ: slot 100", event.threadID, event.messageID);
   }
+
+  const balance = economy.getBalance(userID);
+
+  if (balance < bet) {
+    return api.sendMessage("❌ পর্যাপ্ত কয়েন নেই!", event.threadID, event.messageID);
+  }
+
+  const items = ["🍎", "🍌", "🍒", "🍇", "💎"];
+  const slot1 = items[Math.floor(Math.random() * items.length)];
+  const slot2 = items[Math.floor(Math.random() * items.length)];
+  const slot3 = items[Math.floor(Math.random() * items.length)];
+
+  let result, win = false;
+  if (slot1 === slot2 && slot2 === slot3) {
+    win = true;
+    economy.addBalance(userID, bet * 5);
+    result = `🎉 জয়! আপনি জিতেছেন ${bet * 5} কয়েন!`;
+  } else if (slot1 === slot2 || slot2 === slot3 || slot1 === slot3) {
+    win = true;
+    economy.addBalance(userID, bet * 2);
+    result = `✨ কাছাকাছি! আপনি জিতেছেন ${bet * 2} কয়েন!`;
+  } else {
+    economy.subtractBalance(userID, bet);
+    result = `😢 হেরে গেছেন ${bet} কয়েন...`;
+  }
+
+  const total = economy.getBalance(userID);
+
+  return api.sendMessage(
+    `🎰 SLOT MACHINE 🎰\n━━━━━━━━━━━━━━━\n${slot1} | ${slot2} | ${slot3}\n━━━━━━━━━━━━━━━\n${result}\n💰 আপনার নতুন ব্যালান্স: ${total.toLocaleString()} কয়েন`,
+    event.threadID,
+    event.messageID
+  );
 };
