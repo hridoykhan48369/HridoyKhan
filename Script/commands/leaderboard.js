@@ -1,29 +1,39 @@
-// leaderboard.js
+const economy = require("./Economy.js");
+const fs = require("fs");
+
 module.exports.config = {
   name: "leaderboard",
-  version: "1.0.0",
+  version: "2.0.0",
   hasPermssion: 0,
-  credits: "𝐇𝐑𝐈𝐃𝐎𝐘 𝐇𝐎𝐒𝐒𝐄𝐍",
-  description: "Show top richest users",
+  credits: "Hridoy Hossen",
+  description: "Show the top richest users in the bot economy system",
   commandCategory: "economy",
-  usages: "[count]",
-  cooldowns: 3
+  usages: "leaderboard [count]",
+  cooldowns: 5
 };
 
-module.exports.run = async function({ api, event, args, Users }) {
-  const econ = require("./Economy.js");
+module.exports.run = async ({ api, event, args, Users }) => {
   const { threadID, messageID } = event;
-  const n = Math.max(1, Math.min(20, parseInt(args[0]) || 10));
-  const top = await econ.getTop(n);
-  if (!top.length) return api.sendMessage("No users found.", threadID, messageID);
 
-  // fetch names
-  const lines = [];
-  for (let i = 0; i < top.length; i++) {
-    const row = top[i];
-    let name;
-    try { name = await Users.getNameUser(row.id); } catch(e) { name = row.id; }
-    lines.push(`${i+1}. ${name} — ${row.balance} 💰`);
+  // কতজন টপ দেখাবে
+  const topCount = parseInt(args[0]) || 10;
+
+  const allData = economy.getAllBalances();
+
+  if (allData.length === 0)
+    return api.sendMessage("📉 কোনো ইউজারের ব্যালান্স রেকর্ড পাওয়া যায়নি!", threadID, messageID);
+
+  // ব্যালান্স অনুযায়ী descending order এ সাজানো
+  const sorted = allData.sort((a, b) => b.balance - a.balance).slice(0, topCount);
+
+  let msg = "🏆 𝗧𝗼𝗽 " + topCount + " 𝗥𝗶𝗰𝗵𝗲𝘀𝘁 𝗨𝘀𝗲𝗿𝘀 🏆\n\n";
+  let i = 1;
+
+  for (const user of sorted) {
+    const name = global.data.userName.get(user.userID) || await Users.getNameUser(user.userID);
+    msg += `${i}. ${name} \n💰 ${user.balance.toLocaleString()} coins\n🔹 UID: ${user.userID}\n\n`;
+    i++;
   }
-  api.sendMessage("🏆 Leaderboard:\n" + lines.join("\n"), threadID, messageID);
+
+  api.sendMessage(msg.trim(), threadID, messageID);
 };
